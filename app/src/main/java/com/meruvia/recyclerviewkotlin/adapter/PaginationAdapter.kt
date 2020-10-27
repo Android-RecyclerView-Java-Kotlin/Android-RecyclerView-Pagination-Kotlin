@@ -1,13 +1,22 @@
 package com.meruvia.recyclerviewkotlin.adapter
 
 import android.content.Context
+import android.graphics.drawable.Drawable
 import android.support.v7.widget.RecyclerView
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.ProgressBar
 import android.widget.TextView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.load.engine.GlideException
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.meruvia.recyclerviewkotlin.R
-import com.meruvia.recyclerviewkotlin.data.Movie
+import com.meruvia.recyclerviewkotlin.data.Result
 
 class PaginationAdapter :RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
@@ -16,7 +25,7 @@ class PaginationAdapter :RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     private var isLoadingAdded: Boolean = false
 
-    var movies: MutableList<Movie> = ArrayList()
+    var movies: MutableList<Result> = ArrayList()
     lateinit var context: Context
 
     fun PaginationAdapter(context: Context){
@@ -59,27 +68,27 @@ class PaginationAdapter :RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         }
     }
 
-    fun addAll(movies: MutableList<Movie>) {
+    fun addAll(movies: MutableList<Result>) {
         for(movie in movies){
             add(movie)
         }
     }
 
-    fun add(movie: Movie) {
+    fun add(movie: Result) {
         movies.add(movie)
         notifyItemInserted(movies.size - 1)
     }
 
     fun addLoadingFooter() {
         isLoadingAdded = true
-        add(Movie(""))
+        add(Result())
     }
 
     fun removeLoadingFooter() {
         isLoadingAdded = false
 
         val position: Int =movies.size -1
-        val movie: Movie = movies.get(position)
+        val movie: Result = movies.get(position)
 
         if(movie != null){
             movies.removeAt(position)
@@ -88,9 +97,47 @@ class PaginationAdapter :RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     }
 
     class MovieVH(view: View) : RecyclerView.ViewHolder(view) {
-        val title = view.findViewById<TextView>(R.id.title)
-        fun bind(movie: Movie, context: Context){
-            title.text = movie.title
+        val movieTitle = view.findViewById<TextView>(R.id.movie_title)
+        val movieYear = view.findViewById<TextView>(R.id.movie_year)
+        val movieDesc = view.findViewById<TextView>(R.id.movie_desc)
+        val moviePoster = view.findViewById<ImageView>(R.id.movie_poster)
+        val movieProgress = view.findViewById<ProgressBar>(R.id.movie_progress)
+        fun bind(movie: Result, context: Context){
+            movieTitle.text = movie.title
+            movieYear.text = movie.release_date.substring(0, 4) + " | " + movie.original_language.toUpperCase()
+            movieDesc.text = movie.overview
+
+            // Using Glide to handle image loading.
+            val BASE_URL_IMG = "https://image.tmdb.org/t/p/w220_and_h330_face"
+            Glide
+                .with(context)
+                .load(BASE_URL_IMG + movie.poster_path)
+                .listener(object: RequestListener<Drawable> {
+                    override fun onLoadFailed(
+                        e: GlideException?,
+                        model: Any?,
+                        target: Target<Drawable>?,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        movieProgress.visibility = View.GONE
+                        return false
+                    }
+
+                    override fun onResourceReady(
+                        resource: Drawable?,
+                        model: Any?,
+                        target: Target<Drawable>?,
+                        dataSource: DataSource?,
+                        isFirstResource: Boolean
+                    ): Boolean {
+                        movieProgress.visibility = View.GONE
+                        return false
+                    }
+
+                })
+                .diskCacheStrategy(DiskCacheStrategy.ALL)
+                .centerCrop()
+                .into(moviePoster)
         }
     }
 
