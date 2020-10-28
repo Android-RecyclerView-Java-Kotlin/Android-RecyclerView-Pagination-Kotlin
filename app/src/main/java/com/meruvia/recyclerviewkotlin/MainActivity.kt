@@ -1,24 +1,31 @@
 package com.meruvia.recyclerviewkotlin
 
+import android.content.Context
+import android.net.ConnectivityManager
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import android.view.View
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import com.meruvia.recyclerviewkotlin.adapter.PaginationAdapter
 import com.meruvia.recyclerviewkotlin.api.MovieApi
-import com.meruvia.recyclerviewkotlin.data.Movie
 import com.meruvia.recyclerviewkotlin.data.Result
 import com.meruvia.recyclerviewkotlin.data.TopRaterMovies
 import com.meruvia.recyclerviewkotlin.listener.PaginationScrollListener
 import com.meruvia.recyclerviewkotlin.service.MovieService
+import com.meruvia.recyclerviewkotlin.util.PaginationAdapterCallback
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.android.synthetic.main.error_layout.*
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.util.concurrent.TimeoutException
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), PaginationAdapterCallback {
 
     val PAGE_START: Int = 1
     var isLoading: Boolean = false
@@ -29,7 +36,11 @@ class MainActivity : AppCompatActivity() {
     lateinit var mRecyclerView : RecyclerView
     val mAdapter : PaginationAdapter = PaginationAdapter()
 
-    var movieService: MovieService? = null
+    //private lateinit var errorLayout: LinearLayout
+    private lateinit var txtError: TextView
+    private lateinit var btnRetry: Button
+
+    private var movieService: MovieService? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,6 +49,14 @@ class MainActivity : AppCompatActivity() {
         movieService = MovieApi.getRetrofit().create(MovieService::class.java)
 
         setUpRecyclerView()
+
+        //errorLayout = findViewById(R.id.error_layout) as LinearLayout
+        txtError = findViewById(R.id.error_txt_cause)
+        btnRetry = findViewById(R.id.error_btn_retry)
+
+        btnRetry.setOnClickListener {
+            loadFirstPage()
+        }
     }
 
     fun setUpRecyclerView(){
@@ -95,12 +114,16 @@ class MainActivity : AppCompatActivity() {
 
     fun loadFirstPage() {
 
+        hideErrorView()
+
         callTopRatedMoviesApi().enqueue(object: Callback<TopRaterMovies> {
             override fun onFailure(call: Call<TopRaterMovies>, t: Throwable) {
-                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                showErrorView(t)
             }
 
             override fun onResponse(call: Call<TopRaterMovies>, response: Response<TopRaterMovies>) {
+
+                hideErrorView()
 
                 val results: MutableList<Result> = fetchResults(response) as MutableList<Result>
                 main_progress.visibility = View.GONE
@@ -113,10 +136,34 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    fun showErrorView(throwable: Throwable){
+        if(error_layout.visibility == View.GONE){
+            error_layout.visibility = View.VISIBLE
+            main_progress.visibility = View.GONE
+
+            if(!isNetworkConnected()){
+                txtError.setText(R.string.error_msg_no_internet)
+            }else{
+                if(throwable is TimeoutException){
+                    txtError.setText(R.string.error_msg_timeout)
+                }else{
+                    txtError.setText(R.string.error_msg_unknown)
+                }
+            }
+        }
+    }
+
+    fun hideErrorView(){
+        if(error_layout.visibility == View.VISIBLE){
+            error_layout.visibility = View.GONE
+            main_progress.visibility = View.VISIBLE
+        }
+    }
+
     fun loadNextPage() {
         callTopRatedMoviesApi().enqueue(object: Callback<TopRaterMovies> {
             override fun onFailure(call: Call<TopRaterMovies>, t: Throwable) {
-                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+                mAdapter.showRetry(true, fetchErrorMessage(t))
             }
 
             override fun onResponse(call: Call<TopRaterMovies>, response: Response<TopRaterMovies>) {
@@ -132,5 +179,26 @@ class MainActivity : AppCompatActivity() {
 
         })
 
+    }
+
+    fun fetchErrorMessage(throwable: Throwable): String{
+        var errorMsg: String = resources.getString(R.string.error_msg_unknown)
+
+        if(!isNetworkConnected()){
+            errorMsg = resources.getString(R.string.error_msg_no_internet)
+        }else if(throwable is TimeoutException){
+            errorMsg = resources.getString(R.string.error_msg_timeout)
+        }
+
+        return errorMsg
+    }
+
+    fun isNetworkConnected(): Boolean {
+        val cm: ConnectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        return cm.activeNetworkInfo != null
+    }
+
+    override fun retryPageLoad() {
+        loadNextPage()
     }
 }
