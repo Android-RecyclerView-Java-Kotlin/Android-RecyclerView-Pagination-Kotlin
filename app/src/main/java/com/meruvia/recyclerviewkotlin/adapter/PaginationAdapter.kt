@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.*
 import com.bumptech.glide.Glide
+import com.bumptech.glide.RequestBuilder
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.bumptech.glide.load.engine.GlideException
@@ -17,11 +18,13 @@ import com.bumptech.glide.request.target.Target
 import com.meruvia.recyclerviewkotlin.R
 import com.meruvia.recyclerviewkotlin.data.Result
 import com.meruvia.recyclerviewkotlin.util.PaginationAdapterCallback
+import org.jetbrains.annotations.NotNull
 
 class PaginationAdapter :RecyclerView.Adapter<RecyclerView.ViewHolder>() {
 
     private val ITEM: Int = 0
     private val LOADING: Int = 1
+    private val HERO: Int = 2
 
     private var isLoadingAdded: Boolean = false
     private var retryPageLoad: Boolean = false
@@ -43,7 +46,9 @@ class PaginationAdapter :RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         val layoutInflater = LayoutInflater.from(parent.context)
         //return MovieVH(layoutInflater.inflate(R.layout.item_list, parent, false))
 
-        return if(viewType == ITEM){
+        return if(viewType == HERO){
+            HeroVH(layoutInflater.inflate(R.layout.item_hero, parent, false))
+        }else if(viewType == ITEM){
             MovieVH(layoutInflater.inflate(R.layout.item_list, parent, false))
         }else{
             LoadingVH(layoutInflater.inflate(R.layout.item_progress, parent, false))
@@ -58,7 +63,10 @@ class PaginationAdapter :RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         val movie = movies.get(position)
         //holder.bind(movie, context)
 
-        if(getItemViewType(position) == ITEM){
+        if(getItemViewType(position) == HERO){
+            val heroVH: HeroVH = holder as HeroVH
+            heroVH.bind(movie, context)
+        }else if(getItemViewType(position) == ITEM){
             val movieVH: MovieVH = holder as MovieVH
             movieVH.bind(movie, context)
         }else{
@@ -91,10 +99,14 @@ class PaginationAdapter :RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     }
 
     override fun getItemViewType(position: Int): Int {
-        return if(position == movies.size - 1 && isLoadingAdded){
-            LOADING
-        }else{
-            ITEM
+        return if(position == 0){
+            HERO
+        }else {
+            if (position == movies.size - 1 && isLoadingAdded) {
+                LOADING
+            } else {
+                ITEM
+            }
         }
     }
 
@@ -177,6 +189,34 @@ class PaginationAdapter :RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         val mRetryBtn = view.findViewById<ImageButton>(R.id.loadmore_retry)
         val mErrorTxt = view.findViewById<TextView>(R.id.loadmore_errortxt)
         val mErrorLayout = view.findViewById<LinearLayout>(R.id.loadmore_errorlayout)
+    }
+
+    class HeroVH(view: View) : RecyclerView.ViewHolder(view) {
+        val mMovieTitle = view.findViewById<TextView>(R.id.movie_title)
+        val mMovieDesc = view.findViewById<TextView>(R.id.movie_desc)
+        val mYear = view.findViewById<TextView>(R.id.movie_year)
+        val mPosterImg = view.findViewById<ImageView>(R.id.movie_poster)
+
+        // Using Glide to handle image loading.
+        val BASE_URL_IMG = "https://image.tmdb.org/t/p/w220_and_h330_face"
+        lateinit var context: Context
+
+        fun bind(movie: Result, context: Context){
+            this.context = context
+            mMovieTitle.text = movie.title
+            mMovieDesc.text = movie.overview
+            mYear.text = formatYearLabel(movie)
+
+            loadImage(movie.backdrop_path).into(mPosterImg)
+        }
+
+        fun formatYearLabel(result: Result): String {
+            return result.release_date.substring(0, 4) + " | " + result.original_language.toUpperCase()
+        }
+
+        fun loadImage(@NotNull posterPath: String): RequestBuilder<Drawable> {
+            return Glide.with(context).load(BASE_URL_IMG + posterPath).centerCrop()
+        }
     }
 
     fun showRetry(show: Boolean, @Nullable errorMsg: String) {
