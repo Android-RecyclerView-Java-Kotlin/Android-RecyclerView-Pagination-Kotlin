@@ -57,6 +57,21 @@ class MainActivity : AppCompatActivity(), PaginationAdapterCallback {
         btnRetry.setOnClickListener {
             loadFirstPage()
         }
+
+        main_swiperefresh.setOnRefreshListener {
+            doRefresh()
+        }
+    }
+
+    fun doRefresh() {
+        main_progress.visibility = View.VISIBLE
+        if(callTopRatedMoviesApi().isExecuted)
+            callTopRatedMoviesApi().cancel()
+
+        mAdapter.movies.clear()
+        mAdapter.notifyDataSetChanged()
+        loadFirstPage()
+        main_swiperefresh.isRefreshing = false
     }
 
     fun setUpRecyclerView(){
